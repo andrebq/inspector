@@ -18,5 +18,6 @@ dist:
 docker-build:
 	docker build -t andrebq/inspector:latest .
 
+push?=
 docker-buildx:
-	docker buildx build --platform linux/amd64 --platform linux/arm64 -t andrebq/inspector:latest .
+	docker buildx build $(push) --platform linux/amd64 --platform linux/arm64 -t ghcr.io/andrebq/inspector:latest .

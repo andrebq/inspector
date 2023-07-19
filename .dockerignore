@@ -1,1 +1,6 @@
 dist
+Makefile
+LICENSE
+modd.conf
+README
+shell.nix
