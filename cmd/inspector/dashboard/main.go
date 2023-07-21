@@ -21,7 +21,7 @@ func Cmd(stdout io.Writer) *cli.Command {
 			},
 		},
 		Action: func(ctx *cli.Context) error {
-			return dashboard.Run()
+			return dashboard.Run(ctx.Context)
 			// // TODO: implement something proper, for now,
 			// // just dump requests to stdout
 			// req, err := http.NewRequestWithContext(ctx.Context, "GET", mngApi, nil)

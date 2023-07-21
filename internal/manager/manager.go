@@ -23,7 +23,7 @@ type (
 	// M controls both the proxy redirection and the clients that want to inspect requests
 	M struct {
 		lock     sync.RWMutex
-		probes   map[chan *requestData]struct{}
+		probes   map[chan *IOEvent]struct{}
 		Upstream *httputil.ReverseProxy
 
 		rcount int64
@@ -32,8 +32,13 @@ type (
 
 func (m *M) Proxy() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if !m.hasProbes() {
+			// bypass all the processing since nobody is looking at the data
+			m.Upstream.ServeHTTP(w, req)
+			return
+		}
 		w.Header().Set("X-Inspected", "true")
-		requestID := m.inspectRequest(req)
+		ev := m.inspectRequest(req)
 		log := httptest.NewRecorder()
 		m.Upstream.ServeHTTP(log, req)
 		for k, vals := range log.Header() {
@@ -43,7 +48,7 @@ func (m *M) Proxy() http.Handler {
 		}
 		w.WriteHeader(log.Code)
 		w.Write(log.Body.Bytes())
-		go m.inspectResponse(requestID, log)
+		go m.inspectResponse(ev, log)
 	})
 }
 
@@ -63,24 +68,11 @@ func (m *M) Manager() http.Handler {
 			select {
 			case <-req.Context().Done():
 				return
-			case data, open := <-probe:
+			case ev, open := <-probe:
 				if !open {
 					return
 				}
-
-				var buf []byte
-				signal := IOEvent{}
-				if data.Response != nil {
-					signal.ResponseID = data.ID
-					signal.Code = data.Response.Code
-					signal.Body = string(data.Body)
-					signal.Headers = data.Response.Header()
-				} else {
-					signal.RequestID = data.ID
-					signal.Headers = data.Req.Header
-					signal.Body = string(data.Body)
-				}
-				buf, _ = json.Marshal(signal)
+				buf, _ := json.Marshal(ev)
 				_, err := w.Write(buf)
 				if err != nil {
 					return
@@ -92,18 +84,18 @@ func (m *M) Manager() http.Handler {
 	})
 }
 
-func (m *M) registerProbe() chan *requestData {
+func (m *M) registerProbe() chan *IOEvent {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	probe := make(chan *requestData, 1000)
+	probe := make(chan *IOEvent, 1000)
 	if m.probes == nil {
-		m.probes = make(map[chan *requestData]struct{})
+		m.probes = make(map[chan *IOEvent]struct{})
 	}
 	m.probes[probe] = struct{}{}
 	return probe
 }
 
-func (m *M) removeProbe(p chan *requestData) {
+func (m *M) removeProbe(p chan *IOEvent) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	if m.probes == nil {
@@ -112,50 +104,47 @@ func (m *M) removeProbe(p chan *requestData) {
 	delete(m.probes, p)
 }
 
-func (m *M) inspectResponse(rid int64, res *httptest.ResponseRecorder) {
+func (m *M) inspectResponse(ev *IOEvent, res *httptest.ResponseRecorder) {
+	if ev == nil {
+		return
+	}
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 	if len(m.probes) == 0 {
 		return
 	}
-	rd := &requestData{
-		ID:       rid,
-		Response: res,
-		Body:     res.Body.Bytes(),
-	}
+	ev.Code = res.Code
+	// TODO: change this to use bytes instead
+	ev.Response.Body = res.Body.String()
+	ev.Response.Headers = res.Header()
 
 	for probe := range m.probes {
 		// avoid blocking if probes are too slow to consume
 		select {
-		case probe <- rd:
+		case probe <- ev:
 		default:
 		}
 	}
 }
 
-func (m *M) inspectRequest(req *http.Request) int64 {
-	rid := atomic.AddInt64(&m.rcount, 1)
+func (m *M) hasProbes() bool {
 	m.lock.RLock()
-	defer m.lock.RUnlock()
-	if len(m.probes) == 0 {
-		return rid
-	}
-	copy := req.Clone(req.Context())
+	val := len(m.probes) > 0
+	m.lock.RUnlock()
+	return val
+}
+
+func (m *M) inspectRequest(req *http.Request) *IOEvent {
+	rid := atomic.AddInt64(&m.rcount, 1)
 	body, _ := io.ReadAll(req.Body)
 	req.Body = io.NopCloser(bytes.NewBuffer(body))
 
-	rd := &requestData{
+	ev := &IOEvent{
 		ID:   rid,
-		Req:  copy,
-		Body: body,
+		Code: 0,
+		URL:  req.URL.String(),
 	}
-
-	for probe := range m.probes {
-		// avoid blocking if probes are too slow to consume
-		select {
-		case probe <- rd:
-		default:
-		}
-	}
-	return rid
+	ev.Request.Body = string(body)
+	ev.Request.Headers = req.Header
+	return ev
 }

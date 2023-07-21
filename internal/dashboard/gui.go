@@ -1,17 +1,42 @@
 package dashboard
 
 import (
-	_ "github.com/gdamore/tcell/v2"
-	"github.com/rivo/tview"
+	"context"
+	"errors"
+	"log"
+	"net/http"
+	"time"
 )
 
-func Run() error {
-	app := tview.NewApplication()
-	requests := tview.NewList().SetBorder(true).SetTitle("Requests").SetTitleAlign(tview.AlignLeft)
+func Run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-	layout := tview.NewFlex()
-	layout.AddItem(requests, 50, 1, true)
-	app.SetRoot(layout, true)
+	handler := newRoot()
+	go func() {
+		defer cancel()
+		if err := handler.fetchRequests(ctx); err != nil {
+			log.Printf("Error fetching requests: %v", err)
+		}
+	}()
+	srv := &http.Server{
+		Addr:    "localhost:8083",
+		Handler: handler,
+	}
+	go func() {
+		defer cancel()
+		log.Printf("Starting dahsboard at %v", srv.Addr)
+		err := srv.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Print(err)
+		}
+	}()
+	<-ctx.Done()
+	return gracefulShutdown(srv)
+}
 
-	return app.Run()
+func gracefulShutdown(srv *http.Server) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	return srv.Shutdown(ctx)
 }
