@@ -15,6 +15,7 @@ const (
 <head>
 	<title>{{.Title}}</title>
 	<script src="/builtin/htmx.js"></script>
+	<script src="/builtin/morphdom.js"></script>
 	<link href="/builtin/style.css" rel="stylesheet" content-type="text/css">
 </head>
 {{end}}
@@ -22,20 +23,30 @@ const (
 {{define "index"}}
 {{ template "intro" .}}
 {{ template "head" . }}
-<body>
+{{ template "body-intro" }}
 <section>
 	<h1>Requests</h2>
-	<ul hx-get="/requests" hx-trigger="every 2s">
+	<ul hx-get="/requests" hx-trigger="every 2s" hx-swap="morphdom">
 	</ul>
 </section>
-</body>
+{{ template "body-otro" }}
 {{ template "otro" .}}
 {{end}}
 
+{{ define "body-intro" }}
+<body hx-ext="morphdom-swap">
+{{ end }}
+
+{{ define "body-otro"}}
+</body>
+{{ end }}
+
 {{define "requests" }}
+<ul hx-get="/requests" hx-trigger="every 2s" hx-swap="morphdom">
 {{ range .Requests -}}
-<li id="rid-{{.ID}}">{{ .Code }} - {{ .URL }}</li>
+<li id="rid-{{.ID}}"><a href="#inspect">{{ .Code }} - {{ .URL }}</a></li>
 {{- end }}
+</ul>
 {{end}}
 `
 )

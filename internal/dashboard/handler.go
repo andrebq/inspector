@@ -35,7 +35,8 @@ func newRoot() *rootHandler {
 		api: "http://localhost:8082/",
 	}
 	r.mux = http.NewServeMux()
-	r.mux.HandleFunc("/builtin/htmx.js", r.serveHTMX)
+	r.mux.HandleFunc("/builtin/htmx.js", r.serveJS("htmx.js", htmxMin))
+	r.mux.HandleFunc("/builtin/morphdom.js", r.serveJS("morphdom.js", morphdomMin))
 	r.mux.HandleFunc("/index", r.index)
 	r.mux.HandleFunc("/requests", r.requests)
 	r.mux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
@@ -93,8 +94,10 @@ func (r *rootHandler) index(w http.ResponseWriter, req *http.Request) {
 	r.renderTemplate(w, req, "index.html", "index", struct{ Title string }{Title: "Index"})
 }
 
-func (r *rootHandler) serveHTMX(w http.ResponseWriter, req *http.Request) {
-	http.ServeContent(w, req, "htmx.js", time.Now(), strings.NewReader(htmxMin))
+func (r *rootHandler) serveJS(name, content string) func(w http.ResponseWriter, req *http.Request) {
+	return func(w http.ResponseWriter, req *http.Request) {
+		http.ServeContent(w, req, name, time.Now(), strings.NewReader(content))
+	}
 }
 
 func (r *rootHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
