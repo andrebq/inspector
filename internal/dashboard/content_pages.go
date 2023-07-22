@@ -48,5 +48,22 @@ const (
 {{- end }}
 </ul>
 {{end}}
+
+{{define "inspect-request"}}
+<dl>
+	<dt>URL</dt>
+	<dd>{{.URL}}</dd>
+	<dt>Host</dt>
+	<dd>{{.Host}}</dd>
+	<dt>Request Headers</dt>
+	<dd>
+		<ul>
+			{{range $k, $v := .Request.Headers }}
+			<strong>{{$k}}</strong>: <span>{{$v}}</span>
+			{{end}}
+		</ul>
+	</dd>
+</dl>
+{{end}}
 `
 )

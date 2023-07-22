@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -39,6 +40,7 @@ func newRoot() *rootHandler {
 	r.mux.HandleFunc("/builtin/morphdom.js", r.serveJS("morphdom.js", morphdomMin))
 	r.mux.HandleFunc("/index", r.index)
 	r.mux.HandleFunc("/requests", r.requests)
+	r.mux.HandleFunc("/inspect-request", r.inspectRequest)
 	r.mux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
 		if req.URL.Path != "/" {
 			http.NotFound(w, req)
@@ -92,6 +94,15 @@ func (r *rootHandler) requests(w http.ResponseWriter, req *http.Request) {
 
 func (r *rootHandler) index(w http.ResponseWriter, req *http.Request) {
 	r.renderTemplate(w, req, "index.html", "index", struct{ Title string }{Title: "Index"})
+}
+
+func (r *rootHandler) inspectRequest(w http.ResponseWriter, req *http.Request) {
+	id, err := strconv.ParseInt(req.FormValue("rid"), 10, 64)
+	if err != nil {
+		http.Error(w, "invalid request id", http.StatusBadRequest)
+		return
+	}
+	println(id)
 }
 
 func (r *rootHandler) serveJS(name, content string) func(w http.ResponseWriter, req *http.Request) {
