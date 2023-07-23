@@ -36,8 +36,11 @@ func newRoot() *rootHandler {
 		api: "http://localhost:8082/",
 	}
 	r.mux = http.NewServeMux()
-	r.mux.HandleFunc("/builtin/htmx.js", r.serveJS("htmx.js", htmxMin))
-	r.mux.HandleFunc("/builtin/morphdom.js", r.serveJS("morphdom.js", morphdomMin))
+	r.mux.HandleFunc("/builtin/htmx.js", r.serveContent("htmx.js", htmxMin))
+	r.mux.HandleFunc("/builtin/morphdom.js", r.serveContent("morphdom.js", morphdomMin))
+	r.mux.HandleFunc("/builtin/reset.css", r.serveContent("reset.css", resetCSS))
+	r.mux.HandleFunc("/builtin/tachyon.css", r.serveContent("tachyon.css", tachyonCSS))
+	r.mux.HandleFunc("/builtin/style.css", r.serveContent("style.css", customCSS))
 	r.mux.HandleFunc("/index", r.index)
 	r.mux.HandleFunc("/requests", r.requests)
 	r.mux.HandleFunc("/inspect-request", r.inspectRequest)
@@ -102,22 +105,38 @@ func (r *rootHandler) inspectRequest(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "invalid request id", http.StatusBadRequest)
 		return
 	}
-	println(id)
+	var ev *manager.IOEvent
+	r.lock.RLock()
+	for _, i := range r.events {
+		if i.ID == id {
+			ev = i
+			break
+		}
+	}
+	r.lock.RUnlock()
+	if ev == nil {
+		http.Error(w, "request id not found", http.StatusNoContent)
+		return
+	}
+	r.renderTemplate(w, req, "inspect-request.html", "inspect-request", ev)
 }
 
-func (r *rootHandler) serveJS(name, content string) func(w http.ResponseWriter, req *http.Request) {
+func (r *rootHandler) serveContent(name, content string) func(w http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
 		http.ServeContent(w, req, name, time.Now(), strings.NewReader(content))
 	}
 }
 
 func (r *rootHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	log.Printf("%v %v", req.Method, req.URL)
 	r.mux.ServeHTTP(w, req)
 }
 
 func (r *rootHandler) fetchRequests(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	timeout := time.Second * 5
 
 	for {
 		select {
@@ -132,12 +151,12 @@ func (r *rootHandler) fetchRequests(ctx context.Context) error {
 		res, err := http.DefaultClient.Do(req)
 		if err != nil {
 			log.Printf("Error establishing connection to inspector proxy api: %v", err)
-			<-time.After(time.Minute)
+			<-time.After(timeout)
 			continue
 		}
 		if res.StatusCode != http.StatusOK {
 			log.Printf("Unexpected response from server [%v - %v]", res.StatusCode, res.Status)
-			<-time.After(time.Minute)
+			<-time.After(timeout)
 			continue
 		}
 		log.Printf("Connection with upstram server %v established", r.api)
@@ -154,6 +173,6 @@ func (r *rootHandler) fetchRequests(ctx context.Context) error {
 			r.events = append(r.events, &out)
 			r.lock.Unlock()
 		}
-		<-time.After(time.Minute)
+		<-time.After(timeout)
 	}
 }
