@@ -50,15 +50,18 @@ const (
 {{define "requests" }}
 <ul hx-get="/requests" hx-trigger="every 2s" hx-swap="morphdom">
 {{ range .Requests -}}
-<li id="rid-{{.ID}}"><a href="/inspect-request?rid={{.ID}}" hx-get="/inspect-request?rid={{.ID}}" hx-target="#request-inspector" hx-swap="innerHTML">{{ .Code }} - {{ .URL }}</span></li>
+<li class="bg-light-pink" id="rid-{{.ID}}"><a href="/inspect-request?rid={{.ID}}" hx-get="/inspect-request?rid={{.ID}}" hx-target="#request-inspector" hx-swap="innerHTML">{{.ID}} : {{ .Code }} - {{ .URL }}</a></li>
 {{- end }}
 </ul>
 {{end}}
 
 {{define "inspect-request"}}
 <dl>
+	<dt>ID</dt>
+	<dd>{{.ID}}</dd>
 	<dt>URL</dt>
 	<dd>{{.URL}}</dd>
+	<hr />
 	<dt>Request Headers</dt>
 	<dd>
 		<ul>
@@ -68,7 +71,8 @@ const (
 		</ul>
 	</dd>
 	<dt>Request body</dt>
-	<dd><pre>{{.Request.Body}}</pre></dd>
+	<dd><pre class="limit-h">{{.Request.Body}}</pre></dd>
+	<hr />
 	<dt>Response Headers</dt>
 	<dd>
 		<ul>
@@ -78,7 +82,7 @@ const (
 		</ul>
 	</dd>
 	<dt>Response body</dt>
-	<dd><pre>{{.Response.Body}}</pre></dd>
+	<dd><pre class="limit-h">{{.Response.Body}}</pre></dd>
 </dl>
 {{end}}
 `
