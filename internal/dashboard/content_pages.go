@@ -27,12 +27,12 @@ const (
 {{ template "head" . }}
 {{ template "body-intro" }}
 <div class="flex h-100">
-	<section class="w-20">
-		<h1>Requests</h2>
-		<ul hx-get="/requests" hx-trigger="every 2s" hx-swap="morphdom" style="overflow-y: auto" class="h-100">
+	<section class="vflow w-20">
+		<h1 style="margin: 1rem">Requests</h1>
+		<ul hx-get="/requests" hx-trigger="every 2s" hx-swap="morphdom" style="overflow-y: auto" class="vflow pill">
 		</ul>
 	</section>
-	<section class="w-80" id="request-inspector">
+	<section class="w-80" id="request-inspector" style="margin: 1rem; overflow-y: auto">
 	</section>
 </div>
 {{ template "body-otro" }}
@@ -48,7 +48,7 @@ const (
 {{ end }}
 
 {{define "requests" }}
-<ul hx-get="/requests" hx-trigger="every 2s" hx-swap="morphdom">
+<ul hx-get="/requests" hx-trigger="every 2s" hx-swap="morphdom" class="vflow pill" style="overflow-y: auto">
 {{ range .Requests -}}
 <li class="bg-light-pink" id="rid-{{.ID}}"><a href="/inspect-request?rid={{.ID}}" hx-get="/inspect-request?rid={{.ID}}" hx-target="#request-inspector" hx-swap="innerHTML">{{.ID}} : {{ .Code }} - {{ .URL }}</a></li>
 {{- end }}

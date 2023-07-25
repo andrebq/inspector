@@ -170,7 +170,7 @@ func (r *rootHandler) fetchRequests(ctx context.Context) error {
 				log.Printf("Unexpected error form inspector proxy: %v", err)
 			}
 			r.lock.Lock()
-			r.events = append(r.events, &out)
+			r.events = append([]*manager.IOEvent{&out}, r.events...)
 			r.lock.Unlock()
 		}
 		<-time.After(timeout)

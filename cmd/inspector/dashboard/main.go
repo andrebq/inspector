@@ -1,9 +1,9 @@
 package dashboard
 
 import (
+	"errors"
 	"io"
 
-	"github.com/andrebq/inspector/internal/dashboard"
 	"github.com/urfave/cli/v3"
 )
 
@@ -21,7 +21,8 @@ func Cmd(stdout io.Writer) *cli.Command {
 			},
 		},
 		Action: func(ctx *cli.Context) error {
-			return dashboard.Run(ctx.Context)
+			//return dashboard.Run(ctx.Context)
+			return errors.New("not implemented")
 
 		},
 	}
